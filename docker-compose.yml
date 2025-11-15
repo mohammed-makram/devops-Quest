@@ -1,0 +1,132 @@
+services:
+  # Backend Tier Network Services
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -h $$(hostname -i || echo 127.0.0.1) ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    security_opt:
+      - no-new-privileges:true
+
+  db:
+    image: postgres:15-alpine
+    container_name: db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'PGPASSWORD=$$POSTGRES_PASSWORD psql -h $$(hostname -i || echo 127.0.0.1) -U $$POSTGRES_USER -d $$POSTGRES_DB -c \"SELECT 1\" > /dev/null 2>&1'"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker
+    networks:
+      - backend
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - REDIS_HOST=redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # Frontend Tier Network Services
+  vote:
+    build:
+      context: ./vote
+      dockerfile: Dockerfile
+    container_name: vote
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8080:80"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - OPTION_A=Cats
+      - OPTION_B=Dogs
+      - REDIS_HOST=redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  result:
+    build:
+      context: ./result
+      dockerfile: Dockerfile
+    container_name: result
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8081:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    environment:
+      - PORT=4000
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # Seed service (optional, can be run with profile)
+  seed:
+    build:
+      context: ./seed-data
+      dockerfile: Dockerfile
+    container_name: seed
+    profiles:
+      - seed
+    networks:
+      - frontend
+    depends_on:
+      vote:
+        condition: service_started
+    command: sh -c "python make-data.py && sleep 5 && ./generate-votes.sh"
+
+networks:
+  frontend:
+    name: frontend-tier
+  backend:
+    name: backend-tier
+
+volumes:
+  redis-data:
+  postgres-data:
+

@@ -1,0 +1,95 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly scan
+
+jobs:
+  sast:
+    name: SAST - Static Application Security Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Bandit (Python SAST)
+      uses: securecodewarrior/github-action-add-sarif@v1
+      with:
+        sarif-file: bandit-report.sarif
+      continue-on-error: true
+
+    - name: Install Bandit
+      run: pip install bandit
+
+    - name: Run Bandit scan
+      working-directory: ./vote
+      run: |
+        bandit -r . -f json -o bandit-report.json || true
+        bandit -r . -f sarif -o ../bandit-report.sarif || true
+
+    - name: Run ESLint Security Plugin (Node.js SAST)
+      working-directory: ./result
+      run: |
+        npm ci
+        npm install --save-dev eslint-plugin-security
+        npx eslint --format json --output-file eslint-report.json . || true
+
+  dast:
+    name: DAST - Dynamic Application Security Testing
+    runs-on: ubuntu-latest
+    needs: sast
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Start application with Docker Compose
+      run: |
+        docker compose up -d
+        sleep 30
+
+    - name: Run OWASP ZAP Baseline Scan
+      uses: zaproxy/action-baseline@v0.7.0
+      with:
+        target: 'http://localhost:8080'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Stop Docker Compose
+      if: always()
+      run: docker compose down
+
+  container-scan:
+    name: Container Image Scanning
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [vote, result, worker, seed-data]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ matrix.service }}:test ./${{ matrix.service }}
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ matrix.service }}:test
+        format: 'table'
+        exit-code: '1'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Run Docker Bench Security
+      uses: docker/docker-bench-security-action@v1
+      with:
+        image: ${{ matrix.service }}:test
+

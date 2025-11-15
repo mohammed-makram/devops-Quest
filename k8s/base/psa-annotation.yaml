@@ -1,0 +1,14 @@
+# Pod Security Admission (PSA) is enforced at namespace level
+# See namespace.yaml for PSA labels
+# This file documents PSA configuration
+
+---
+# Example: Override PSA for specific pods if needed
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   labels:
+#     pod-security.kubernetes.io/enforce: baseline
+#     pod-security.kubernetes.io/audit: restricted
+#     pod-security.kubernetes.io/warn: restricted
+

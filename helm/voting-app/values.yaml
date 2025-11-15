@@ -1,0 +1,166 @@
+# Default values for voting-app
+replicaCount: 2
+
+namespace: voting-app
+imageRegistry: ""
+imagePullPolicy: Always
+imagePullSecrets: []
+
+# Service configurations
+vote:
+  image:
+    repository: vote
+    tag: latest
+  replicaCount: 2
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+result:
+  image:
+    repository: result
+    tag: latest
+  replicaCount: 2
+  service:
+    type: ClusterIP
+    port: 4000
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+worker:
+  image:
+    repository: worker
+    tag: latest
+  replicaCount: 2
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+# Application configuration
+config:
+  optionA: "Cats"
+  optionB: "Dogs"
+  postgresHost: "postgresql"
+  postgresUser: "postgres"
+  postgresDb: "postgres"
+  redisHost: "redis-master"
+
+# Secrets (use Azure Key Vault or sealed-secrets in production)
+secrets:
+  postgresPassword: "postgres"
+  redisPassword: ""
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: vote.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: result.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: voting-app-tls
+      hosts:
+        - vote.example.com
+        - result.example.com
+
+# Network policies
+networkPolicy:
+  enabled: true
+
+# Pod Security Admission
+podSecurity:
+  enforce: restricted
+  audit: restricted
+  warn: restricted
+
+# Service Account
+serviceAccount:
+  create: true
+  name: "voting-app-sa"
+  annotations: {}
+
+# PostgreSQL (Bitnami Helm Chart)
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "postgres"
+    database: "postgres"
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "1000m"
+  metrics:
+    enabled: true
+
+# Redis (Bitnami Helm Chart)
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"
+  metrics:
+    enabled: true
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+

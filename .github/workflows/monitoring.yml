@@ -1,0 +1,48 @@
+name: Deploy Monitoring Stack
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'monitoring/**'
+
+jobs:
+  deploy-monitoring:
+    name: Deploy Prometheus and Grafana
+    runs-on: ubuntu-latest
+    environment: prod
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set kubectl context
+      run: |
+        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_PROD }} --name ${{ secrets.AKS_CLUSTER_NAME_PROD }} --admin
+
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+
+    - name: Deploy Prometheus
+      run: |
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo update
+        helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+          --namespace monitoring \
+          --create-namespace \
+          --set prometheus.prometheusSpec.retention=30d \
+          --set grafana.enabled=true
+
+    - name: Configure ServiceMonitor
+      run: |
+        kubectl apply -f monitoring/servicemonitor.yaml || true
+

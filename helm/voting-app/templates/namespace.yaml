@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace | default "voting-app" }}
+  labels:
+    name: {{ .Values.namespace | default "voting-app" }}
+    pod-security.kubernetes.io/enforce: {{ .Values.podSecurity.enforce }}
+    pod-security.kubernetes.io/audit: {{ .Values.podSecurity.audit }}
+    pod-security.kubernetes.io/warn: {{ .Values.podSecurity.warn }}
+

@@ -1,0 +1,17 @@
+.git
+.gitignore
+README.md
+.dockerignore
+*.md
+.vscode
+.idea
+node_modules
+__pycache__
+*.pyc
+.env
+terraform/
+k8s/
+helm/
+monitoring/
+.github/
+
