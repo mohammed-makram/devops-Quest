@@ -1,8 +1,15 @@
 # Voting Application - Production-Ready DevOps Setup
 
+[![CI/CD Pipeline](https://github.com/mohammed-makram/devops-Quest/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/mohammed-makram/devops-Quest/actions/workflows/ci-cd.yml)
+[![Security Scanning](https://github.com/mohammed-makram/devops-Quest/actions/workflows/security.yml/badge.svg)](https://github.com/mohammed-makram/devops-Quest/actions/workflows/security.yml)
+
 ## Overview
 
-This is a production-ready DevOps implementation of a distributed voting application built as part of the Junior DevOps Engineer hiring quest at Tactful.ai. The application consists of multiple microservices containerized with Docker, orchestrated with Kubernetes, and deployed on Azure Kubernetes Service (AKS) with full CI/CD automation.
+This is a production-ready DevOps implementation of a distributed voting application built as part of the **Junior DevOps Engineer hiring quest at Tactful.ai**. The application consists of multiple microservices containerized with Docker, orchestrated with Kubernetes, and deployed on a **local Kubernetes cluster (Minikube)** with full CI/CD automation.
+
+**Repository:** https://github.com/mohammed-makram/devops-Quest
+
+> **Note:** This project is deployed on a local Kubernetes cluster (Minikube) due to Azure subscription limitations. The Terraform infrastructure code is production-ready for Azure AKS deployment. See [LOCAL_DEPLOYMENT.md](LOCAL_DEPLOYMENT.md) for detailed local setup instructions.
 
 ## Architecture
 
@@ -64,21 +71,30 @@ This separation ensures that database and message queue services are not directl
 
 ## Prerequisites
 
+### Required:
 - Docker and Docker Compose
-- Kubernetes cluster (AKS, minikube, k3s, or microk8s)
-- kubectl configured to access your cluster
+- Minikube (or k3s/microk8s)
+- kubectl
 - Helm 3.x
-- Terraform >= 1.0 (for infrastructure provisioning)
-- Azure CLI (for AKS deployment)
+
+### Optional (for Azure AKS deployment):
+- Terraform >= 1.0
+- Azure CLI
+- Azure subscription
+
+### Quick Links:
+- 📖 [Local Deployment Guide](LOCAL_DEPLOYMENT.md) - Detailed Minikube/k3s setup
+- 🎬 [Demo Video Script](DEMO_SCRIPT.md) - Guide for recording demo video
+- 🧪 [Testing Guide](TESTING_GUIDE.md) - Comprehensive testing instructions
 
 ## Phase 1: Containerization & Local Setup
 
-### Running Locally
+### Running Locally with Docker Compose
 
 1. **Clone the repository:**
 ```bash
-git clone <repository-url>
-cd devops-task
+git clone https://github.com/mohammed-makram/devops-Quest.git
+cd devops-Quest
 ```
 
 2. **Build and start all services:**
@@ -147,7 +163,9 @@ terraform apply
 - ✅ Separate node pools for system and user workloads
 - ✅ Multi-environment support (dev/prod)
 
-**Note:** If Azure is not available, you can use minikube, k3s, or microk8s for local Kubernetes cluster. See the [Local Cluster Setup](#local-cluster-setup) section.
+**Note:** This project is deployed on Minikube. For detailed local cluster setup instructions, see [LOCAL_DEPLOYMENT.md](LOCAL_DEPLOYMENT.md).
+
+The Terraform code is provided as a reference implementation for Azure AKS and demonstrates understanding of Infrastructure as Code principles.
 
 ### Kubernetes Deployment
 
@@ -171,11 +189,11 @@ helm upgrade --install voting-app . \
   --namespace voting-app \
   --create-namespace \
   --values values-dev.yaml \
-  --set vote.image.repository=<your-registry>/vote \
+  --set vote.image.repository=ghcr.io/mohammed-makram/vote \
   --set vote.image.tag=latest \
-  --set result.image.repository=<your-registry>/result \
+  --set result.image.repository=ghcr.io/mohammed-makram/result \
   --set result.image.tag=latest \
-  --set worker.image.repository=<your-registry>/worker \
+  --set worker.image.repository=ghcr.io/mohammed-makram/worker \
   --set worker.image.tag=latest
 ```
 
@@ -212,42 +230,80 @@ kubectl apply -k k8s/base
 - ✅ StatefulSets for PostgreSQL and Redis with persistence
 - ✅ Ingress configuration for external access
 
-### Local Cluster Setup
+### Local Cluster Setup (Current Deployment)
 
-If Azure AKS is not available, you can use a local Kubernetes cluster:
+This project is deployed on **Minikube** for demonstration purposes.
 
-#### Using Minikube
+#### Quick Start with Minikube:
 
 ```bash
-minikube start --driver=docker
+# Start Minikube with sufficient resources
+minikube start --driver=docker --cpus=4 --memory=8192
+
+# Enable required addons
 minikube addons enable ingress
+minikube addons enable metrics-server
+
+# Verify cluster
 kubectl get nodes
 ```
 
-#### Using k3s
+#### Build Images for Minikube:
 
 ```bash
-curl -sfL https://get.k3s.io | sh -
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-kubectl get nodes
+# Point Docker to Minikube's Docker daemon
+eval $(minikube docker-env)
+
+# Build all images
+docker build -t ghcr.io/mohammed-makram/vote:latest ./vote
+docker build -t ghcr.io/mohammed-makram/result:latest ./result
+docker build -t ghcr.io/mohammed-makram/worker:latest ./worker
 ```
 
-#### Using MicroK8s
+#### Deploy with Helm:
 
 ```bash
-snap install microk8s --classic
-microk8s enable ingress
-microk8s kubectl get nodes
+cd helm/voting-app
+helm dependency update
+helm upgrade --install voting-app . \
+  --namespace voting-app \
+  --create-namespace \
+  --values values-dev.yaml \
+  --set vote.image.pullPolicy=IfNotPresent \
+  --set result.image.pullPolicy=IfNotPresent \
+  --set worker.image.pullPolicy=IfNotPresent
 ```
 
-**Trade-off:** Local clusters don't provide:
-- Managed Kubernetes updates
-- Azure-native integrations (Azure AD, Key Vault, etc.)
-- High availability across zones
-- Production-grade load balancing
-- Automatic backups
+#### Access the Application:
 
-For production workloads, AKS or other managed Kubernetes services are recommended.
+```bash
+# Port forwarding (easiest method)
+kubectl port-forward -n voting-app svc/voting-app-vote 8080:80
+kubectl port-forward -n voting-app svc/voting-app-result 8081:4000
+
+# Access in browser:
+# Vote: http://localhost:8080
+# Result: http://localhost:8081
+```
+
+**📖 For detailed instructions, troubleshooting, and alternatives (k3s/microk8s), see [LOCAL_DEPLOYMENT.md](LOCAL_DEPLOYMENT.md)**
+
+#### Trade-offs: Local vs Azure AKS
+
+**Local Cluster Limitations:**
+- ❌ No managed Kubernetes updates
+- ❌ No Azure-native integrations (Azure AD, Key Vault, etc.)
+- ❌ No high availability across zones
+- ❌ Limited scalability
+- ❌ Manual maintenance required
+
+**Local Cluster Advantages:**
+- ✅ Zero cost
+- ✅ Fast iteration and testing
+- ✅ Full control
+- ✅ Same Kubernetes APIs as cloud
+
+**For production workloads, managed Kubernetes services (AKS, EKS, GKE) are strongly recommended.**
 
 ## Phase 3: CI/CD, Security & Observability
 
@@ -273,11 +329,17 @@ The project includes GitHub Actions workflows for:
 
 #### GitHub Secrets Required
 
+For automated deployment (currently disabled for local cluster):
+- `GITHUB_TOKEN`: Automatically provided by GitHub Actions for GHCR access
+
+For Azure AKS deployment (optional):
 - `AZURE_CREDENTIALS`: Azure service principal credentials
 - `AKS_RESOURCE_GROUP`: AKS resource group name (dev)
 - `AKS_CLUSTER_NAME`: AKS cluster name (dev)
 - `AKS_RESOURCE_GROUP_PROD`: AKS resource group name (prod)
 - `AKS_CLUSTER_NAME_PROD`: AKS cluster name (prod)
+
+**Note:** Deployment jobs are currently commented out in the CI/CD pipeline for local cluster deployment. See [LOCAL_DEPLOYMENT.md](LOCAL_DEPLOYMENT.md) for manual deployment steps.
 
 ### Monitoring
 
@@ -543,19 +605,104 @@ Check GitHub Actions logs for specific job failures. Common issues:
 7. **Multi-region Deployment**: Active-active deployment across regions
 8. **API Gateway**: Implement Azure API Management for API governance
 
-## Contributing
+## 📹 Demo Video
 
-This is a challenge submission. For production use, consider:
-- Code reviews for all changes
-- Comprehensive testing
-- Security audits
-- Documentation updates
-- Performance optimization
+**Video Walkthrough:** [Link to be added]
 
-## License
+For recording your own demo, see [DEMO_SCRIPT.md](DEMO_SCRIPT.md) for a detailed script and recording tips.
 
-This project is part of a hiring challenge. All rights reserved.
+## 📊 Project Statistics
 
-## Contact
+- **Total Services:** 4 (vote, result, worker, seed-data)
+- **Kubernetes Resources:** 30+ (Deployments, Services, ConfigMaps, Secrets, NetworkPolicies, etc.)
+- **Helm Charts:** 1 main chart + 2 dependencies (PostgreSQL, Redis)
+- **CI/CD Workflows:** 3 (Build/Test, Security, Monitoring)
+- **Terraform Modules:** 2 (AKS, Network)
+- **Lines of Code:** 5000+
+- **Documentation:** 4 comprehensive guides
 
-For questions or issues related to this challenge submission, please refer to the challenge requirements and documentation.
+## 🎯 Challenge Completion Checklist
+
+### Phase 1: Containerization ✅
+- ✅ All services containerized with efficient Dockerfiles
+- ✅ Non-root users in all containers
+- ✅ Docker Compose with two-tier networking
+- ✅ Health checks for Redis and PostgreSQL
+- ✅ Exposed ports: 8080 (vote), 8081 (result)
+- ✅ Seed data service included
+
+### Phase 2: Infrastructure & Deployment ✅
+- ✅ Kubernetes cluster (Minikube) provisioned
+- ✅ Terraform code for Azure AKS (production-ready)
+- ✅ Multi-environment support (dev/prod)
+- ✅ Kubernetes manifests with ConfigMaps, Secrets, resource limits
+- ✅ Non-root policies enforced (PSA restricted mode)
+- ✅ NetworkPolicies isolating database tier
+- ✅ Production-grade Helm chart
+- ✅ PostgreSQL and Redis via Bitnami Helm charts
+- ✅ Trade-offs documented
+
+### Phase 3: Automation, Security & Observability ✅
+- ✅ CI/CD pipeline (GitHub Actions)
+- ✅ Automated Docker image builds and pushes to GHCR
+- ✅ Security scans (Trivy, Bandit, ESLint, OWASP ZAP)
+- ✅ Automated tests
+- ✅ Terraform validation
+- ✅ Prometheus + Grafana monitoring
+- ✅ ServiceMonitors and alerting rules
+- ✅ RBAC implemented
+- ✅ Secrets management
+
+### Documentation ✅
+- ✅ Comprehensive README
+- ✅ Local deployment guide
+- ✅ Testing guide
+- ✅ Demo video script
+- ✅ Architecture diagram
+- ✅ Design decisions documented
+- ✅ Trade-offs explained
+
+## 🚀 Quick Start Commands
+
+```bash
+# 1. Start with Docker Compose
+docker compose up -d
+
+# 2. Or deploy to Minikube
+minikube start --driver=docker --cpus=4 --memory=8192
+eval $(minikube docker-env)
+docker build -t ghcr.io/mohammed-makram/vote:latest ./vote
+docker build -t ghcr.io/mohammed-makram/result:latest ./result
+docker build -t ghcr.io/mohammed-makram/worker:latest ./worker
+cd helm/voting-app && helm dependency update
+helm upgrade --install voting-app . -n voting-app --create-namespace --values values-dev.yaml
+
+# 3. Access the application
+kubectl port-forward -n voting-app svc/voting-app-vote 8080:80
+kubectl port-forward -n voting-app svc/voting-app-result 8081:4000
+```
+
+## 📚 Additional Documentation
+
+- [LOCAL_DEPLOYMENT.md](LOCAL_DEPLOYMENT.md) - Complete local cluster setup guide
+- [DEMO_SCRIPT.md](DEMO_SCRIPT.md) - Video recording script and tips
+- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testing and validation procedures
+- [terraform/README.md](terraform/README.md) - Infrastructure as Code documentation
+
+## 👨‍💻 Author
+
+**Mohammed Makram**
+- GitHub: [@mohammed-makram](https://github.com/mohammed-makram)
+- Repository: [devops-Quest](https://github.com/mohammed-makram/devops-Quest)
+
+## 📝 License
+
+This project is part of the Tactful.ai Junior DevOps Engineer hiring challenge.
+
+## 🙏 Acknowledgments
+
+- Tactful.ai for the challenging and comprehensive hiring quest
+- Code Quest platform for organizing the challenge
+- Open source community for amazing tools (Docker, Kubernetes, Helm, Terraform, Prometheus, Grafana)
+ 
+ 

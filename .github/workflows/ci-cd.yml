@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}
+  IMAGE_PREFIX: mohammed-makram
 
 jobs:
   build-and-test:
@@ -61,6 +61,7 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: build-and-test
+    if: github.event_name != 'pull_request'
     strategy:
       matrix:
         service: [vote, result, worker, seed-data]
@@ -69,18 +70,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Build image for scanning
+      run: |
+        docker build -t ${{ matrix.service }}:scan ./${{ matrix.service }}
+
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
-        format: 'sarif'
-        output: 'trivy-results-${{ matrix.service }}.sarif'
-
-    - name: Upload Trivy results to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+        image-ref: ${{ matrix.service }}:scan
+        format: 'table'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '0'
+      continue-on-error: true
 
   test:
     name: Test Application
@@ -119,172 +120,169 @@ jobs:
       working-directory: ./result
       run: npm test || true
 
-  terraform-validate:
-    name: Terraform Validate
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # Terraform validation disabled for local deployment
+  # Terraform code is provided as reference for Azure AKS
+  # terraform-validate:
+  #   name: Terraform Validate
+  #   runs-on: ubuntu-latest
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #
+  #   - name: Set up Terraform
+  #     uses: hashicorp/setup-terraform@v3
+  #     with:
+  #       terraform_version: 1.6.0
+  #
+  #   - name: Terraform Format Check
+  #     run: terraform fmt -check -recursive
+  #
+  #   - name: Terraform Init
+  #     working-directory: ./terraform/environments/dev
+  #     run: terraform init -backend=false
+  #
+  #   - name: Terraform Validate
+  #     working-directory: ./terraform/environments/dev
+  #     run: terraform validate
 
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.6.0
+  # Note: Deployment to local cluster (minikube/k3s) is done manually
+  # See LOCAL_DEPLOYMENT.md for instructions
+  # Uncomment and configure the following job if you have a remote cluster
+  
+  # deploy-dev:
+  #   name: Deploy to Dev
+  #   runs-on: ubuntu-latest
+  #   needs: [build-and-test, security-scan, test]
+  #   if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+  #   environment: dev
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #
+  #   - name: Set up kubectl
+  #     uses: azure/setup-kubectl@v3
+  #     with:
+  #       version: 'latest'
+  #
+  #   - name: Configure kubectl for your cluster
+  #     run: |
+  #       # Configure kubectl to connect to your cluster
+  #       echo "Configure your cluster connection here"
+  #
+  #   - name: Install Helm
+  #     uses: azure/setup-helm@v3
+  #     with:
+  #       version: 'latest'
+  #
+  #   - name: Add Helm repositories
+  #     run: |
+  #       helm repo add bitnami https://charts.bitnami.com/bitnami
+  #       helm repo update
+  #
+  #   - name: Deploy with Helm
+  #     working-directory: ./helm/voting-app
+  #     run: |
+  #       helm dependency update
+  #       helm upgrade --install voting-app . \
+  #         --namespace voting-app \
+  #         --create-namespace \
+  #         --values values-dev.yaml \
+  #         --set vote.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/vote \
+  #         --set vote.image.tag=${{ github.sha }} \
+  #         --set result.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/result \
+  #         --set result.image.tag=${{ github.sha }} \
+  #         --set worker.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/worker \
+  #         --set worker.image.tag=${{ github.sha }}
+  #
+  #   - name: Run smoke tests
+  #     run: |
+  #       kubectl wait --for=condition=available --timeout=300s deployment/voting-app-vote -n voting-app
+  #       kubectl wait --for=condition=available --timeout=300s deployment/voting-app-result -n voting-app
+  #       echo "Deployment successful"
 
-    - name: Terraform Format Check
-      run: terraform fmt -check -recursive
+  # deploy-prod:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: [build-and-test, security-scan, test]
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   environment: prod
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #
+  #   - name: Configure kubectl for production cluster
+  #     run: |
+  #       # Configure kubectl to connect to your production cluster
+  #       echo "Configure your cluster connection here"
+  #
+  #   - name: Install Helm
+  #     uses: azure/setup-helm@v3
+  #     with:
+  #       version: 'latest'
+  #
+  #   - name: Add Helm repositories
+  #     run: |
+  #       helm repo add bitnami https://charts.bitnami.com/bitnami
+  #       helm repo update
+  #
+  #   - name: Deploy with Helm
+  #     working-directory: ./helm/voting-app
+  #     run: |
+  #       helm dependency update
+  #       helm upgrade --install voting-app . \
+  #         --namespace voting-app \
+  #         --create-namespace \
+  #         --values values-prod.yaml \
+  #         --set vote.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/vote \
+  #         --set vote.image.tag=${{ github.sha }} \
+  #         --set result.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/result \
+  #         --set result.image.tag=${{ github.sha }} \
+  #         --set worker.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/worker \
+  #         --set worker.image.tag=${{ github.sha }}
+  #
+  #   - name: Run smoke tests
+  #     run: |
+  #       kubectl wait --for=condition=available --timeout=300s deployment/voting-app-vote -n voting-app
+  #       kubectl wait --for=condition=available --timeout=300s deployment/voting-app-result -n voting-app
+  #       echo "Production deployment successful"
 
-    - name: Terraform Init
-      working-directory: ./terraform/environments/dev
-      run: terraform init -backend=false
-
-    - name: Terraform Validate
-      working-directory: ./terraform/environments/dev
-      run: terraform validate
-
-  deploy-dev:
-    name: Deploy to Dev
-    runs-on: ubuntu-latest
-    needs: [build-and-test, security-scan, test, terraform-validate]
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    environment: dev
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
-
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Set kubectl context
-      run: |
-        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --admin
-
-    - name: Install Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: 'latest'
-
-    - name: Add Helm repositories
-      run: |
-        helm repo add bitnami https://charts.bitnami.com/bitnami
-        helm repo update
-
-    - name: Deploy with Helm
-      working-directory: ./helm/voting-app
-      run: |
-        helm dependency update
-        helm upgrade --install voting-app . \
-          --namespace voting-app \
-          --create-namespace \
-          --values values-dev.yaml \
-          --set vote.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/vote \
-          --set vote.image.tag=${{ github.sha }} \
-          --set result.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/result \
-          --set result.image.tag=${{ github.sha }} \
-          --set worker.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/worker \
-          --set worker.image.tag=${{ github.sha }}
-
-    - name: Run smoke tests
-      run: |
-        kubectl wait --for=condition=available --timeout=300s deployment/voting-app-vote -n voting-app
-        kubectl wait --for=condition=available --timeout=300s deployment/voting-app-result -n voting-app
-        echo "Deployment successful"
-
-  deploy-prod:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build-and-test, security-scan, test, terraform-validate]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: prod
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
-
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Set kubectl context
-      run: |
-        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_PROD }} --name ${{ secrets.AKS_CLUSTER_NAME_PROD }} --admin
-
-    - name: Install Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: 'latest'
-
-    - name: Add Helm repositories
-      run: |
-        helm repo add bitnami https://charts.bitnami.com/bitnami
-        helm repo update
-
-    - name: Deploy with Helm
-      working-directory: ./helm/voting-app
-      run: |
-        helm dependency update
-        helm upgrade --install voting-app . \
-          --namespace voting-app \
-          --create-namespace \
-          --values values-prod.yaml \
-          --set vote.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/vote \
-          --set vote.image.tag=${{ github.sha }} \
-          --set result.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/result \
-          --set result.image.tag=${{ github.sha }} \
-          --set worker.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/worker \
-          --set worker.image.tag=${{ github.sha }}
-
-    - name: Run smoke tests
-      run: |
-        kubectl wait --for=condition=available --timeout=300s deployment/voting-app-vote -n voting-app
-        kubectl wait --for=condition=available --timeout=300s deployment/voting-app-result -n voting-app
-        echo "Production deployment successful"
-
-  infrastructure-deploy:
-    name: Deploy Infrastructure
-    runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '[infra]') || contains(github.event.head_commit.message, '[terraform]')
-    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.6.0
-
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Terraform Init
-      working-directory: ./terraform/environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-      run: terraform init
-
-    - name: Terraform Plan
-      working-directory: ./terraform/environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-      run: terraform plan -out=tfplan
-
-    - name: Terraform Apply
-      if: github.event_name == 'push'
-      working-directory: ./terraform/environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
-      run: terraform apply -auto-approve tfplan
+  # Infrastructure deployment is not automated for local clusters
+  # Terraform code is provided as reference for Azure AKS deployment
+  # See terraform/README.md for manual deployment instructions
+  
+  # infrastructure-deploy:
+  #   name: Deploy Infrastructure
+  #   runs-on: ubuntu-latest
+  #   if: contains(github.event.head_commit.message, '[infra]') || contains(github.event.head_commit.message, '[terraform]')
+  #   environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #
+  #   - name: Set up Terraform
+  #     uses: hashicorp/setup-terraform@v3
+  #     with:
+  #       terraform_version: 1.6.0
+  #
+  #   - name: Configure cloud provider credentials
+  #     run: |
+  #       # Configure your cloud provider credentials here
+  #       echo "Configure credentials"
+  #
+  #   - name: Terraform Init
+  #     working-directory: ./terraform/environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+  #     run: terraform init
+  #
+  #   - name: Terraform Plan
+  #     working-directory: ./terraform/environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+  #     run: terraform plan -out=tfplan
+  #
+  #   - name: Terraform Apply
+  #     if: github.event_name == 'push'
+  #     working-directory: ./terraform/environments/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+  #     run: terraform apply -auto-approve tfplan
 

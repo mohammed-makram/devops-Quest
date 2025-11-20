@@ -23,10 +23,28 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            until nc -zv postgres-service 5432; do
+              echo "Waiting for Postgres..."
+              sleep 2
+            done
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+              - ALL
       containers:
       - name: worker
-        image: your-registry/worker:latest
-        imagePullPolicy: Always
+        image: devops-worker-app:latest
+        imagePullPolicy: Never
         env:
         - name: POSTGRES_HOST
           valueFrom:
@@ -58,9 +76,9 @@ spec:
         livenessProbe:
           exec:
             command:
-            - sh
-            - -c
-            - "pgrep -f Worker.dll > /dev/null"
+              - sh
+              - -c
+              - "pgrep -f Worker.dll > /dev/null"
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 5
@@ -68,9 +86,9 @@ spec:
         readinessProbe:
           exec:
             command:
-            - sh
-            - -c
-            - "pgrep -f Worker.dll > /dev/null"
+              - sh
+              - -c
+              - "pgrep -f Worker.dll > /dev/null"
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
@@ -78,9 +96,10 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
+          runAsNonRoot: true
           capabilities:
             drop:
-            - ALL
+              - ALL
 ---
 apiVersion: v1
 kind: Service
@@ -94,4 +113,8 @@ spec:
   type: ClusterIP
   selector:
     app: worker
-
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http

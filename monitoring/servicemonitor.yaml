@@ -4,15 +4,17 @@ metadata:
   name: voting-app-metrics
   namespace: voting-app
   labels:
-    app: voting-app
+    app.kubernetes.io/name: voting-app
+    release: prometheus
 spec:
   selector:
     matchLabels:
-      app: voting-app
+      app.kubernetes.io/name: voting-app
   endpoints:
   - port: http
     interval: 30s
     path: /metrics
+    scrapeTimeout: 10s
 
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -21,15 +23,17 @@ metadata:
   name: voting-app-pods
   namespace: voting-app
   labels:
-    app: voting-app
+    app.kubernetes.io/name: voting-app
+    release: prometheus
 spec:
   selector:
     matchLabels:
-      app: voting-app
+      app.kubernetes.io/name: voting-app
   podMetricsEndpoints:
   - port: http
     interval: 30s
     path: /metrics
+    scrapeTimeout: 10s
 
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -38,7 +42,8 @@ metadata:
   name: voting-app-alerts
   namespace: voting-app
   labels:
-    app: voting-app
+    app.kubernetes.io/name: voting-app
+    release: prometheus
 spec:
   groups:
   - name: voting-app

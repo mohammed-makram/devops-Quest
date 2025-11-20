@@ -1,11 +1,9 @@
 name: Deploy Monitoring Stack
 
+# Disabled for local deployment - requires Azure AKS cluster
+# See LOCAL_DEPLOYMENT.md for manual monitoring setup
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths:
-      - 'monitoring/**'
 
 jobs:
   deploy-monitoring:
@@ -42,7 +40,8 @@ jobs:
           --set prometheus.prometheusSpec.retention=30d \
           --set grafana.enabled=true
 
-    - name: Configure ServiceMonitor
+    - name: Configure ServiceMonitor and Dashboard
       run: |
         kubectl apply -f monitoring/servicemonitor.yaml || true
+        kubectl apply -f monitoring/grafana-dashboard.yaml || true
 

@@ -2,14 +2,14 @@
 replicaCount: 2
 
 namespace: voting-app
-imageRegistry: ""
-imagePullPolicy: Always
+imageRegistry: "ghcr.io/mohammed-makram"
+imagePullPolicy: IfNotPresent
 imagePullSecrets: []
 
 # Service configurations
 vote:
   image:
-    repository: vote
+    repository: ghcr.io/mohammed-makram/vote
     tag: latest
   replicaCount: 2
   service:
@@ -30,7 +30,7 @@ vote:
 
 result:
   image:
-    repository: result
+    repository: ghcr.io/mohammed-makram/result
     tag: latest
   replicaCount: 2
   service:
@@ -51,7 +51,7 @@ result:
 
 worker:
   image:
-    repository: worker
+    repository: ghcr.io/mohammed-makram/worker
     tag: latest
   replicaCount: 2
   resources:
@@ -89,19 +89,20 @@ ingress:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: vote.example.com
+    - host: vote.local
       paths:
         - path: /
           pathType: Prefix
-    - host: result.example.com
+    - host: result.local
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - secretName: voting-app-tls
-      hosts:
-        - vote.example.com
-        - result.example.com
+  tls: []
+    # Uncomment for production with real domain
+    # - secretName: voting-app-tls
+    #   hosts:
+    #     - vote.yourdomain.com
+    #     - result.yourdomain.com
 
 # Network policies
 networkPolicy:

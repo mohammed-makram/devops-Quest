@@ -2,6 +2,10 @@
 
 This directory contains Terraform configurations for provisioning Azure infrastructure for the voting application.
 
+> **⚠️ Note:** This Terraform code is provided as a **reference implementation** for Azure AKS deployment. The current project deployment uses a local Kubernetes cluster (Minikube) due to Azure subscription limitations. However, this code is production-ready and demonstrates understanding of Infrastructure as Code principles.
+>
+> For the actual deployment used in this project, see [LOCAL_DEPLOYMENT.md](../LOCAL_DEPLOYMENT.md).
+
 ## Structure
 
 ```

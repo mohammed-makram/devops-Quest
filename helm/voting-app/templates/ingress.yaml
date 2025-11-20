@@ -34,9 +34,15 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ if eq .path "/" }}{{ include "voting-app.fullname" $ }}-vote{{ else }}{{ include "voting-app.fullname" $ }}-result{{ end }}
+                {{- if hasPrefix "vote" .host }}
+                name: {{ include "voting-app.fullname" $ }}-vote
                 port:
-                  number: {{ if eq .path "/" }}{{ $.Values.vote.service.port }}{{ else }}{{ $.Values.result.service.port }}{{ end }}
+                  number: {{ $.Values.vote.service.port }}
+                {{- else }}
+                name: {{ include "voting-app.fullname" $ }}-result
+                port:
+                  number: {{ $.Values.result.service.port }}
+                {{- end }}
           {{- end }}
     {{- end }}
 {{- end }}

@@ -1,4 +1,4 @@
-# Development environment values
+# Development environment values (Local Cluster)
 replicaCount: 1
 
 vote:
@@ -58,7 +58,7 @@ redis:
         cpu: "250m"
 
 ingress:
-  enabled: false
+  enabled: true  # Enable for local development
 
 podSecurity:
   enforce: baseline
