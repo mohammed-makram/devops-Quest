@@ -26,6 +26,7 @@ spec:
   {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
+    {{- $host := .host }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -34,7 +35,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                {{- if hasPrefix "vote" .host }}
+                {{- if hasPrefix "vote" $host }}
                 name: {{ include "voting-app.fullname" $ }}-vote
                 port:
                   number: {{ $.Values.vote.service.port }}
