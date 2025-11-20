@@ -59,3 +59,6 @@ yarn-error.log*
 # Kustomize
 kustomization-build.yaml
 
+minikube-linux-amd64
+*.tar
+/tmp/
