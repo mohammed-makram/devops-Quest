@@ -123,6 +123,8 @@ serviceAccount:
 # PostgreSQL (Bitnami Helm Chart)
 postgresql:
   enabled: true
+  image:
+    tag: "latest"
   auth:
     postgresPassword: "postgres"
     database: "postgres"
@@ -138,11 +140,13 @@ postgresql:
         memory: "512Mi"
         cpu: "1000m"
   metrics:
-    enabled: true
+    enabled: false
 
 # Redis (Bitnami Helm Chart)
 redis:
   enabled: true
+  image:
+    tag: "latest"
   auth:
     enabled: false
   master:
@@ -157,7 +161,7 @@ redis:
         memory: "256Mi"
         cpu: "500m"
   metrics:
-    enabled: true
+    enabled: false
 
 # Monitoring
 monitoring:
