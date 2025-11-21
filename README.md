@@ -3,6 +3,10 @@
 [![CI/CD Pipeline](https://github.com/mohammed-makram/devops-Quest/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/mohammed-makram/devops-Quest/actions/workflows/ci-cd.yml)
 [![Security Scanning](https://github.com/mohammed-makram/devops-Quest/actions/workflows/security.yml/badge.svg)](https://github.com/mohammed-makram/devops-Quest/actions/workflows/security.yml)
 
+## 🎬 Demo Video
+
+**Watch the full demo:** [Demo Video on Google Drive](https://drive.google.com/file/d/1vZABMYmm5oq-_oBzeBM7ORa0W2-FMBUP/view?usp=drive_link)
+
 ## Overview
 
 This is a production-ready DevOps implementation of a distributed voting application built as part of the **Junior DevOps Engineer hiring quest at Tactful.ai**. The application consists of multiple microservices containerized with Docker, orchestrated with Kubernetes, and deployed on a **local Kubernetes cluster (Minikube)** with full CI/CD automation.
@@ -704,5 +708,6 @@ This project is part of the Tactful.ai Junior DevOps Engineer hiring challenge.
 - Tactful.ai for the challenging and comprehensive hiring quest
 - Code Quest platform for organizing the challenge
 - Open source community for amazing tools (Docker, Kubernetes, Helm, Terraform, Prometheus, Grafana)
- 
+
+ 
  
